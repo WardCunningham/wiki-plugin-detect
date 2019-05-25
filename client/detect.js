@@ -11,17 +11,19 @@
   };
 
   function parse(text, $item) {
+    let output = expand(text)
     let candidates = $(`.item:lt(${$('.item').index($item)})`)
     let who = candidates.filter('.server-source')
     if (who.size()) {
-      let sources = $.map(who, (source) => {
+      output += $.map(who, (source) => {
         let service = source.service()
-        console.log(service)
-        return service.parse.output
-      })
-      return {output: expand(text)+"<p class=caption>"+sources.join('<hr>')+"</p>"}
+        console.log({service})
+        return `<p class=caption>${service.parse.output}</p>`
+      }).join("\n")
+    } else {
+      output += "<p class=caption>can't find service to monitor</p>"
     }
-    return {output: expand(text)+"<p class=caption>can't find service to monitor</p>"}
+    return {output}
   }
 
   function emit($item, item) {
