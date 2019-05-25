@@ -1,0 +1,37 @@
+{
+  "title": "About Detect Plugin",
+  "story": [
+  {
+    "type": "paragraph",
+    "id": "fb03b5c17bad3c6c",
+    "text": "Here we describe the purpose of the plugin and include a sample."
+  },
+  {
+    "type": "detect",
+    "id": "954cc6c9039b68bd",
+    "text": "This is text in the new plugin. You can *double-click* to edit it too."
+  }
+],
+  "journal": [
+  {
+    "type": "create",
+    "item": {
+      "title": "About Detect Plugin",
+      "story": [
+  {
+    "type": "paragraph",
+    "id": "fb03b5c17bad3c6c",
+    "text": "Here we describe the purpose of the plugin and include a sample."
+  },
+  {
+    "type": "detect",
+    "id": "954cc6c9039b68bd",
+    "text": "This is text in the new plugin. You can *double-click* to edit it too."
+  }
+]
+    },
+    "date": 1558802756000,
+    "certificate": "from mkplugin.sh"
+  }
+]
+}
