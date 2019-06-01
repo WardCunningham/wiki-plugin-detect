@@ -6,22 +6,54 @@ function startServer (params) {
       argv = params.argv;
 
   var detectors = {} // slug/item => event handler
-  var emitters = {} // slug/item => event emitter
+  var emitters = emittersFor(app) // "slug/item" => emitter
+
+  function emittersFor (app) {
+    if (!app.serviceEmitters) {
+      app.serviceEmitters = {}
+    }
+    return app.serviceEmitters
+  }
+
+  function emitterFor (slugitem) {
+    if (!emitters[slugitem]) {
+      emitters[slugitem] = new events.EventEmitter()
+    }
+    return emitters[slugitem]
+  }
+
+  // {
+  //   sources: [
+  //     {slugitem: "slug/item"},
+  //     {slugitem: "slug/item"}
+  //   ]
+  // }
 
   function activate(schedule) {
-    return "emitter"
+    for (var source of schedule.sources||[]) {
+        source.recent = [null, null, null, null]
+        source.listener = (sample) => {source.recent.shift(); source.recent.push(sample); console.log({source})}
+        let emitter = emitterFor(source.slugitem)
+        emitter.on('sample',source.listener)
+    }
+    return schedule
+  }
+
+  function deactivate(schedule) {
+    for (var source of schedule.sources||[]) {
+      emitterFor(source.slugitem).removeListener('sample', source.listener)
+    }
   }
 
   function start(slugitem, schedule) {
     console.log({slugitem, schedule})
-    detectors[slugitem] = {schedule}
-    emitters[slugitem] = activate(schedule)
+    detectors[slugitem] = activate(schedule)
   }
 
   function stop(slugitem) {
     console.log({slugitem})
+    deactivate(detectors[slugitem]||{sources:[]})
     delete detectors[slugitem]
-    delete emitters[slugitem]
   }
 
   function owner(req, res, next) {

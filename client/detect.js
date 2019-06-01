@@ -10,22 +10,27 @@
   }
 
   function parse(text, $item) {
+    console.log('parsing',text)
     let output = expand(text)
     let candidates = $(`.item:lt(${$('.item').index($item)})`)
     let who = candidates.filter('.server-source')
+    let sources = []
     if (who.size()) {
-      output += $.map(who, (source) => {
-        let service = source.service()
-        console.log({service})
+      output += $.map(who, (item) => {
+        let service = item.service()
+        let source = {slugitem: `${service.slug}/${service.id}`}
+        sources.push(source)
         return `<p class=caption>${service.parse.output}</p>`
       }).join("\n")
     } else {
       output += "<p class=caption>can't find service to monitor</p>"
     }
-    return {output}
+    console.log({sources, output})
+    return {sources, output}
   }
 
   function emit($item, item) {
+    console.log('parse',item.text)
     let parsed = parse(item.text, $item)
     $item.append(`
       <div style="background-color:#eee; padding:15px; margin-block-start:1em; margin-block-end:1em;">
@@ -37,11 +42,12 @@
 
   function bind($item, item) {
     $item.dblclick(() => {
+      action({action:'stop'})
       return wiki.textEditor($item, item);
     });
 
     let $button = $item.find('button')
-    let parsed = parse(item.text)
+    let parsed = parse(item.text, $item)
 
     function action(command) {
       $button.prop('disabled',true)
@@ -65,7 +71,7 @@
         }
       })
     }
-    $button.click(event => action({action:$button.text(),schedule:parsed.schedule}))
+    $button.click(event => action({action:$button.text(),schedule:{sources:parsed.sources}}))
     action({})
   }
 
