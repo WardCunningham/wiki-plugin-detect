@@ -33,10 +33,12 @@ function startServer (params) {
 
   function activate(schedule) {
     for (var source of schedule.sources||[]) {
-        source.recent = [null, null, null, null]
-        source.listener = (sample) => {source.recent.shift(); source.recent.push(sample); console.log({source})}
-        let emitter = emitterFor(source.slugitem)
-        emitter.on('sample',source.listener)
+        let sourcex = source
+        console.log('source',sourcex)
+        sourcex.recent = [null, null, null, null]
+        sourcex.listener = (sample) => {sourcex.recent.shift(); sourcex.recent.push(sample); console.log({sourcex})}
+        let emitter = emitterFor(sourcex.slugitem)
+        emitter.on('sample',sourcex.listener)
     }
     return schedule
   }

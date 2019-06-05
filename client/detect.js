@@ -16,26 +16,27 @@
     let who = candidates.filter('.server-source')
     let sources = []
     if (who.size()) {
-      output += $.map(who, (item) => {
-        let service = item.service()
-        let source = {slugitem: `${service.slug}/${service.id}`}
+      output += $.map(who, (whom) => {
+        let service = whom.service()
+        console.log({service})
+        let source = {slugitem: `${service.slug}/${service.id}`, service}
         sources.push(source)
-        return `<p class=caption>${service.parse.output}</p>`
+        return `<p class=caption>${service.title}<br>${service.sensors.join(" • ")}</p>`
       }).join("\n")
     } else {
       output += "<p class=caption>can't find service to monitor</p>"
     }
-    console.log({sources, output})
+    console.log('parse return sources', sources)
+    console.log('parse return output', output)
     return {sources, output}
   }
 
   function emit($item, item) {
     console.log('parse',item.text)
-    let parsed = parse(item.text, $item)
     $item.append(`
       <div style="background-color:#eee; padding:15px; margin-block-start:1em; margin-block-end:1em;">
-        ${parsed.output}
-        <center><button disabled>wait</button></center>
+        <div class=binding>waiting</div>
+        <div style="margin-block-start:1em;"><center><button disabled>wait</button></center></div>
       </div>`);
   };
 
@@ -48,14 +49,15 @@
 
     let $button = $item.find('button')
     let parsed = parse(item.text, $item)
+    $item.find('.binding').html(parsed.output)
 
     function action(command) {
       $button.prop('disabled',true)
-      $page = $item.parents('.page')
+      let $page = $item.parents('.page')
       if($page.hasClass('local')) {
         return
       }
-      slug = $page.attr('id').split('_')[0]
+      let slug = $page.attr('id').split('_')[0]
       $.ajax({
         type: "POST",
         url: `/plugin/detect/${slug}/id/${item.id}`,
