@@ -7,7 +7,7 @@ function startServer (params) {
   var app = params.app,
       argv = params.argv;
 
-  var detectors = {} // slug/item => event handler
+  var detectors = {} // slug/item => annotated schedule
   var emitters = emittersFor(app) // "slug/item" => emitter
 
   function emittersFor (app) {
@@ -26,25 +26,76 @@ function startServer (params) {
 
   // {
   //   sources: [
-  //     {slugitem: "slug/item"},
-  //     {slugitem: "slug/item"}
+  //     {slugitem: "slug/item", service: {...}, recent: [...], notified: bool, listener: function},
+  //     {slugitem: "slug/item", service: {...}}
   //   ]
   // }
 
   function activate(schedule) {
-    for (var source of schedule.sources||[]) {
-        let sourcex = source
-        console.log('source',sourcex)
-        sourcex.recent = [null, null, null, null]
-        sourcex.listener = (sample) => {sourcex.recent.shift(); sourcex.recent.push(sample); console.log({sourcex})}
-        let emitter = emitterFor(sourcex.slugitem)
-        emitter.on('sample',sourcex.listener)
+    for (let source of schedule.sources||[]) {
+      source.recent = [null, null, null, null]
+      source.notified = {}
+      source.listener = (sample) => record(source, sample)
+      let emitter = emitterFor(source.slugitem)
+      emitter.on('sample',source.listener)
     }
     return schedule
   }
 
+  function record(source, sample) {
+    source.recent.shift()
+    source.recent.push(sample)
+    if(source.recent[0]) {
+      evaluate(source)
+    }
+  }
+
+  function evaluate(source) {
+    let values = {} // signalname => [bool, bool, ...]
+    for (let sample of source.recent) {
+      for (let signal of sample.result) {
+        let name = signal.name
+        let value = trouble(signal.data)
+        values[name] = values[name] || []
+        values[name].push(value)
+      }
+    }
+    for (let name in values) {
+      let notified = source.notified[name]
+      let all = values[name].reduce((sum,each) => sum && !!each)
+      let none = values[name].reduce((sum,each) => sum && !each)
+      if (all && !notified) {
+        notify(name, values[name][0])
+        source.notified[name]=true
+      }
+      if (none && notified) {
+        notify(name, null)
+        source.notified[name]=false
+      }
+    }
+  }
+
+  function trouble(data) {
+    if (data.hasOwnProperty('exit')) {
+      if (data.exit != 0) {
+        return data.error
+      }
+    } else {
+      let values = Object.values(data)
+      let avg = values.reduce((sum,each)=>sum+each) / values.length
+      if (avg > 0.5) {
+        return "greater than 0.5"
+      }
+    }
+    return null
+  }
+
+  function notify(signal, trouble) {
+    console.log('=== notice === ', signal, trouble||'trouble cleared')
+  }
+
   function deactivate(schedule) {
-    for (var source of schedule.sources||[]) {
+    for (let source of schedule.sources||[]) {
       emitterFor(source.slugitem).removeListener('sample', source.listener)
     }
   }
@@ -70,17 +121,16 @@ function startServer (params) {
     }
   }
 
-  app.get('/plugin/detect/:thing', (req, res) => {
-    var thing = req.params.thing;
-    return res.json({thing});
-  });
+  // {
+  //   action: "start",
+  //   schedule: {...}
+  // }
 
   app.post('/plugin/detect/:slug/id/:id/', owner, (req, res) => {
     let slug = req.params['slug']
     let item = req.params['id']
     let slugitem = `${slug}/${item}`
     let command = req.body
-    console.log('action',command.action||'status',slugitem)
     if (command.action) {
       if (command.action == 'start') {
         start(slugitem, command.schedule)
