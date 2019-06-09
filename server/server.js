@@ -4,11 +4,12 @@
 const events = require('events')
 
 function startServer (params) {
-  var app = params.app,
-      argv = params.argv;
 
-  var detectors = {} // slug/item => annotated schedule
-  var emitters = emittersFor(app) // "slug/item" => emitter
+  let app = params.app
+  let argv = params.argv
+
+  let detectors = {} // slug/item => annotated schedule
+  let emitters = emittersFor(app) // "slug/item" => emitter
 
   function emittersFor (app) {
     if (!app.serviceEmitters) {
@@ -31,7 +32,7 @@ function startServer (params) {
   //   ]
   // }
 
-  function activate(schedule) {
+  function activate(slugitem, schedule) {
     for (let source of schedule.sources||[]) {
       source.recent = [null, null, null, null]
       source.notified = {}
@@ -40,58 +41,62 @@ function startServer (params) {
       emitter.on('sample',source.listener)
     }
     return schedule
-  }
 
-  function record(source, sample) {
-    source.recent.shift()
-    source.recent.push(sample)
-    if(source.recent[0]) {
-      evaluate(source)
-    }
-  }
-
-  function evaluate(source) {
-    let values = {} // signalname => [bool, bool, ...]
-    for (let sample of source.recent) {
-      for (let signal of sample.result) {
-        let name = signal.name
-        let value = trouble(signal.data)
-        values[name] = values[name] || []
-        values[name].push(value)
+    function record(source, sample) {
+      source.recent.shift()
+      source.recent.push(sample)
+      if(source.recent[0]) {
+        evaluate(source)
       }
     }
-    for (let name in values) {
-      let notified = source.notified[name]
-      let all = values[name].reduce((sum,each) => sum && !!each)
-      let none = values[name].reduce((sum,each) => sum && !each)
-      if (all && !notified) {
-        notify(name, values[name][0])
-        source.notified[name]=true
+
+    function evaluate(source) {
+      let values = {} // signalname => [bool, bool, ...]
+      for (let sample of source.recent) {
+        for (let signal of sample.result) {
+          let name = signal.name
+          let value = trouble(signal.data)
+          values[name] = values[name] || []
+          values[name].push(value)
+        }
       }
-      if (none && notified) {
-        notify(name, null)
-        source.notified[name]=false
+      for (let name in values) {
+        let notified = source.notified[name]
+        let all = values[name].reduce((sum,each) => sum && !!each)
+        let none = values[name].reduce((sum,each) => sum && !each)
+        if (all && !notified) {
+          notify(name, values[name][0])
+          source.notified[name]=true
+        }
+        if (none && notified) {
+          notify(name, null)
+          source.notified[name]=false
+        }
       }
     }
-  }
 
-  function trouble(data) {
-    if (data.hasOwnProperty('exit')) {
-      if (data.exit != 0) {
-        return data.error
+    function trouble(data) {
+      if (data.hasOwnProperty('exit')) {
+        if (data.exit != 0) {
+          return data.error
+        }
+      } else {
+        let values = Object.values(data)
+        let avg = values.reduce((sum,each)=>sum+each) / values.length
+        if (avg > 0.5) {
+          return "greater than 0.5"
+        }
       }
-    } else {
-      let values = Object.values(data)
-      let avg = values.reduce((sum,each)=>sum+each) / values.length
-      if (avg > 0.5) {
-        return "greater than 0.5"
-      }
+      return null
     }
-    return null
-  }
 
-  function notify(signal, trouble) {
-    console.log('=== notice === ', signal, trouble||'trouble cleared')
+    function notify(signal, trouble) {
+      let notice = trouble || 'trouble cleared'
+      console.log({slugitem, signal, notice})
+      let emitter = emitterFor(slugitem)
+      emitter.emit('notice',{signal, notice})
+    }
+
   }
 
   function deactivate(schedule) {
@@ -102,7 +107,7 @@ function startServer (params) {
 
   function start(slugitem, schedule) {
     console.log({slugitem, schedule})
-    detectors[slugitem] = activate(schedule)
+    detectors[slugitem] = activate(slugitem, schedule)
   }
 
   function stop(slugitem) {

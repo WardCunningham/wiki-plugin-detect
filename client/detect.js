@@ -32,7 +32,17 @@
   }
 
   function emit($item, item) {
-    console.log('parse',item.text)
+    let $page = $item.parents('.page')
+    if (!($page.hasClass('local') || $page.hasClass('remote'))) {
+      $item.addClass('server-source')
+      let site = location.host
+      let slug = $page.attr('id').split('_')[0]
+      let title = $page.find('h1').text().trim()
+      $item.get(0).service = () => {
+        return {site, slug, title, id:item.id, plugin: 'detect'}
+      }
+    }
+
     $item.append(`
       <div style="background-color:#eee; padding:15px; margin-block-start:1em; margin-block-end:1em;">
         <div class=binding>waiting</div>
